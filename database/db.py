@@ -118,7 +118,7 @@ async def remove_channel(channel_username: str) -> bool:
         channel = result.scalar_one_or_none()
         if channel is None:
             return False
-        await session.delete(channel)
+        session.delete(channel)
         await session.commit()
         return True
 
