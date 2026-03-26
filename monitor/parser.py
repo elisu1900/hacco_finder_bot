@@ -25,6 +25,23 @@ BRANDS: dict[str, list[str]] = {
     "Calvin Klein": ["calvin klein", "ck"],
     "Guess": ["guess"],
     "Hacoo": ["hacoo"],
+    "Jacquemus": ["jacquemus"],
+    "Lacoste": ["lacoste"],
+    "Hugo Boss": ["hugo boss", "boss"],
+    "Mango": ["mango"],
+    "Stradivarius": ["stradivarius"],
+    "Pull&Bear": ["pull&bear", "pull & bear", "pull and bear"],
+    "Bershka": ["bershka"],
+    "Massimo Dutti": ["massimo dutti"],
+    "Stone Island": ["stone island"],
+    "The North Face": ["the north face", "north face", "tnf"],
+    "Carhartt": ["carhartt"],
+    "Dickies": ["dickies"],
+    "Tommy Jeans": ["tommy jeans"],
+    "Guess": ["guess"],
+    "Versace": ["versace"],
+    "Armani": ["armani", "emporio armani", "ea7"],
+    "Balenciaga": ["balenciaga"],
     "Other": [],
 }
 
@@ -99,10 +116,10 @@ def _extract_external_link(text: str) -> str | None:
 
 
 def _build_title(text: str) -> str:
-    """Use the first non-empty line as title, truncated to 255 chars."""
+    """Use the first non-empty non-URL line as title, truncated to 255 chars."""
     for line in text.splitlines():
         line = line.strip()
-        if line:
+        if line and not _URL_RE.match(line):
             return line[:255]
     return text[:255]
 
