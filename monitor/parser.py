@@ -111,6 +111,7 @@ BRANDS: dict[str, list[str]] = {
     "Aime Leon Dore": ["aime leon dore", "ald"],
     "Vivienne Westwood": ["vivienne westwood"],
     "Comme des Garcons": ["comme des garcons", "comme des garçons", "cdg"],
+    "Comme des Garcons Play": ["comme des garcons play", "cdg play", "play comme"],
     "Yohji Yamamoto": ["yohji yamamoto", "y-3"],
     "Issey Miyake": ["issey miyake"],
     # Calzado
