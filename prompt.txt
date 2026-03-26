@@ -1,0 +1,23 @@
+Implement the Telegram Clothing Deals Bot described in `implementation_plan.md`.
+Follow the architecture, file structure, and database schema exactly as specified there.
+Use `task.md` to track progress — check off items as you complete them.
+
+## Implementation order:
+1. Project setup: requirements.txt, .env.example, config.py
+2. Database layer: database/models.py and database/db.py
+3. Post parser: monitor/parser.py (keyword-based brand/category/color extractor)
+4. Channel monitor: monitor/collector.py (Telethon user client)
+5. Bot handlers: bot/handlers.py (ConversationHandler + admin commands)
+6. Entry point: main.py (run bot + monitor concurrently with asyncio)
+
+## Key behavior to implement:
+- Conversation flow: user types brand → inline keyboard for category → inline keyboard for color → results list
+- Each result shows: title, short description, Telegram post link, optional external link
+- If no results: "No results found for this combination. Try another filter."
+- Admin commands: /addchannel, /removechannel, /channels, /reindex (restricted to ADMIN_USER_IDS)
+- Channel monitor runs as background asyncio task, fetches history on startup, listens for new posts
+
+## Do not:
+- Ask for credentials — leave placeholders in .env.example
+- Run the bot — just implement and verify imports are correct
+- Add features not in the plan
