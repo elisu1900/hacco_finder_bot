@@ -2,7 +2,7 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import select
 
-from database.models import Base, Product, MonitoredChannel
+from database.models import Base, Product, MonitoredChannel, AllowedUser, InviteCode
 from config import DATABASE_PATH
 
 
@@ -119,6 +119,66 @@ async def remove_channel(channel_username: str) -> bool:
         if channel is None:
             return False
         session.delete(channel)
+        await session.commit()
+        return True
+
+
+async def add_allowed_user(user_id: int, username: str | None) -> bool:
+    async with SessionFactory() as session:
+        existing = await session.execute(
+            select(AllowedUser).where(AllowedUser.user_id == user_id)
+        )
+        if existing.scalar_one_or_none() is not None:
+            return False
+        session.add(AllowedUser(user_id=user_id, username=username))
+        await session.commit()
+        return True
+
+
+async def remove_allowed_user(user_id: int) -> bool:
+    async with SessionFactory() as session:
+        result = await session.execute(
+            select(AllowedUser).where(AllowedUser.user_id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            return False
+        session.delete(user)
+        await session.commit()
+        return True
+
+
+async def is_allowed_user(user_id: int) -> bool:
+    async with SessionFactory() as session:
+        result = await session.execute(
+            select(AllowedUser).where(AllowedUser.user_id == user_id)
+        )
+        return result.scalar_one_or_none() is not None
+
+
+async def get_allowed_users() -> list[AllowedUser]:
+    async with SessionFactory() as session:
+        result = await session.execute(select(AllowedUser).order_by(AllowedUser.added_at))
+        return list(result.scalars().all())
+
+
+async def create_invite_code(code: str) -> None:
+    async with SessionFactory() as session:
+        session.add(InviteCode(code=code))
+        await session.commit()
+
+
+async def use_invite_code(code: str, user_id: int, username: str | None) -> bool:
+    """Returns True if code was valid and user was registered."""
+    async with SessionFactory() as session:
+        result = await session.execute(
+            select(InviteCode).where(InviteCode.code == code, InviteCode.used == False)  # noqa: E712
+        )
+        invite = result.scalar_one_or_none()
+        if invite is None:
+            return False
+        invite.used = True
+        session.add(AllowedUser(user_id=user_id, username=username))
         await session.commit()
         return True
 

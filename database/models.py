@@ -35,3 +35,24 @@ class MonitoredChannel(Base):
 
     def __repr__(self) -> str:
         return f"<MonitoredChannel id={self.id} username={self.channel_username!r}>"
+
+
+class AllowedUser(Base):
+    __tablename__ = "allowed_users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, unique=True)
+    username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self) -> str:
+        return f"<AllowedUser id={self.id} user_id={self.user_id!r}>"
+
+
+class InviteCode(Base):
+    __tablename__ = "invite_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True)
+    used: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

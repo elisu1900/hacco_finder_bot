@@ -11,6 +11,8 @@ from telegram.ext import (
 )
 
 from config import ADMIN_USER_IDS
+import secrets
+
 from database.db import (
     search_products,
     get_categories_for_brand,
@@ -18,6 +20,12 @@ from database.db import (
     add_channel,
     remove_channel,
     get_channels,
+    add_allowed_user,
+    remove_allowed_user,
+    is_allowed_user,
+    get_allowed_users,
+    create_invite_code,
+    use_invite_code,
 )
 from monitor.collector import fetch_channel_history
 
@@ -40,6 +48,12 @@ def _is_admin(user_id: int) -> bool:
     return user_id in ADMIN_USER_IDS
 
 
+async def _can_use_bot(user_id: int) -> bool:
+    if user_id in ADMIN_USER_IDS:
+        return True
+    return await is_allowed_user(user_id)
+
+
 def _format_product(product) -> str:
     lines = [f"*{product.title}*"]
     if product.description:
@@ -55,7 +69,23 @@ def _format_product(product) -> str:
 # ---------------------------------------------------------------------------
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not _is_admin(update.effective_user.id):
+    user = update.effective_user
+
+    # Handle invite code: /start <code>
+    if context.args:
+        code = context.args[0]
+        if await is_allowed_user(user.id) or _is_admin(user.id):
+            await update.message.reply_text("You already have access.")
+        else:
+            registered = await use_invite_code(code, user.id, user.username)
+            if registered:
+                await update.message.reply_text("Access granted! Send me a brand name to start searching.")
+                return WAIT_BRAND
+            else:
+                await update.message.reply_text("Invalid or already used invite link.")
+        return ConversationHandler.END
+
+    if not await _can_use_bot(user.id):
         await update.message.reply_text("You are not authorized to use this bot.")
         return ConversationHandler.END
 
@@ -68,7 +98,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def receive_brand(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not _is_admin(update.effective_user.id):
+    if not await _can_use_bot(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this bot.")
         return ConversationHandler.END
 
@@ -222,6 +252,77 @@ async def cmd_channels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text("Monitored channels:\n" + "\n".join(lines))
 
 
+async def cmd_gencode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    code = secrets.token_urlsafe(16)
+    await create_invite_code(code)
+    bot_username = (await context.bot.get_me()).username
+    await update.message.reply_text(
+        f"Invite link (one-time use):\nhttps://t.me/{bot_username}?start={code}"
+    )
+
+
+async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /adduser <user_id>")
+        return
+
+    try:
+        user_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("User ID must be a number.")
+        return
+
+    added = await add_allowed_user(user_id, username=None)
+    if added:
+        await update.message.reply_text(f"User {user_id} added.")
+    else:
+        await update.message.reply_text(f"User {user_id} is already allowed.")
+
+
+async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /removeuser <user_id>")
+        return
+
+    try:
+        user_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("User ID must be a number.")
+        return
+
+    removed = await remove_allowed_user(user_id)
+    if removed:
+        await update.message.reply_text(f"User {user_id} removed.")
+    else:
+        await update.message.reply_text(f"User {user_id} not found.")
+
+
+async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    users = await get_allowed_users()
+    if not users:
+        await update.message.reply_text("No users registered.")
+        return
+
+    lines = [f"• {u.user_id}" + (f" (@{u.username})" if u.username else "") for u in users]
+    await update.message.reply_text("Allowed users:\n" + "\n".join(lines))
+
+
 async def cmd_reindex(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this command.")
@@ -270,5 +371,9 @@ def build_application(token: str) -> Application:
     app.add_handler(CommandHandler("removechannel", cmd_removechannel))
     app.add_handler(CommandHandler("channels", cmd_channels))
     app.add_handler(CommandHandler("reindex", cmd_reindex))
+    app.add_handler(CommandHandler("gencode", cmd_gencode))
+    app.add_handler(CommandHandler("adduser", cmd_adduser))
+    app.add_handler(CommandHandler("removeuser", cmd_removeuser))
+    app.add_handler(CommandHandler("users", cmd_users))
 
     return app
