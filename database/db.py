@@ -35,7 +35,7 @@ def get_session() -> AsyncSession:
 
 
 async def search_products_by_brand(query: str, limit: int = 10) -> list[Product]:
-    since = datetime.now(timezone.utc) - timedelta(days=365)
+    since = datetime.now(timezone.utc) - timedelta(days=500)
     pattern = f"%{query}%"
     async with SessionFactory() as session:
         result = await session.execute(
