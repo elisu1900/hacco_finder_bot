@@ -15,9 +15,18 @@ engine = create_async_engine(_db_url(), echo=False)
 SessionFactory: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False)
 
 
+DEFAULT_CHANNELS = [
+    "@cnfansfinds9",
+    "@hacooesp",
+    "@SPAINHACOOLINKS",
+]
+
+
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    for username in DEFAULT_CHANNELS:
+        await add_channel(username)
 
 
 def get_session() -> AsyncSession:
