@@ -25,6 +25,7 @@ BRANDS: dict[str, list[str]] = {
     "Calvin Klein": ["calvin klein", "ck"],
     "Guess": ["guess"],
     "Hacoo": ["hacoo"],
+    "Stussy": ["stussy", "stüssy"],
     "Jacquemus": ["jacquemus"],
     "Lacoste": ["lacoste"],
     "Hugo Boss": ["hugo boss", "boss"],
