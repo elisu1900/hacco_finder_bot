@@ -2,8 +2,9 @@ import asyncio
 import logging
 
 from telethon import TelegramClient
+from telethon.sessions import StringSession
 
-from config import BOT_TOKEN, API_ID, API_HASH, SESSION_NAME
+from config import BOT_TOKEN, API_ID, API_HASH, SESSION_NAME, SESSION_STRING
 from database.db import init_db
 from bot.handlers import build_application
 from monitor.collector import run_monitor
@@ -32,7 +33,8 @@ async def main() -> None:
     await init_db()
 
     # Create and start a single shared Telethon client
-    client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
+    session = StringSession(SESSION_STRING) if SESSION_STRING else SESSION_NAME
+    client = TelegramClient(session, API_ID, API_HASH)
     await client.start()
     logger.info("Telethon client connected.")
 

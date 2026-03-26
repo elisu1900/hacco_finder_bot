@@ -15,3 +15,4 @@ ADMIN_USER_IDS: list[int] = [
 
 DATABASE_PATH: str = os.getenv("DATABASE_PATH", "data/bot.db")
 SESSION_NAME: str = os.getenv("SESSION_NAME", "monitor_session")
+SESSION_STRING: str = os.getenv("SESSION_STRING", "")
