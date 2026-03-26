@@ -294,8 +294,9 @@ COLORS: dict[str, list[str]] = {
     "Other": [],
 }
 
-# Pre-compile URL pattern
-_URL_RE = re.compile(r"https?://[^\s]+")
+# Pre-compile URL pattern — strips trailing punctuation like ) ] , .
+_URL_RE = re.compile(r"https?://[^\s\)\"\']+")
+_TITLE_LABEL_RE = re.compile(r"^[\W\d_]*(?:article|product|item|precio|price|💰|👕|👗|👟|👔|🧥|🧤|🎽)\s*:?\s*", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -336,11 +337,13 @@ def _extract_external_link(text: str) -> str | None:
 
 
 def _build_title(text: str) -> str:
-    """Use the first non-empty non-URL line as title, truncated to 255 chars."""
+    """Use the first non-empty non-URL line as title, stripping label prefixes."""
     for line in text.splitlines():
         line = line.strip()
         if line and not _URL_RE.match(line):
-            return line[:255]
+            line = _TITLE_LABEL_RE.sub("", line).strip()
+            if line:
+                return line[:255]
     return text[:255]
 
 
