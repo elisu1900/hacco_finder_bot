@@ -1,10 +1,9 @@
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
     ConversationHandler,
     ContextTypes,
     filters,
@@ -14,9 +13,7 @@ from config import ADMIN_USER_IDS
 import secrets
 
 from database.db import (
-    search_products,
-    get_categories_for_brand,
-    get_colors_for_brand_category,
+    search_products_by_brand,
     add_channel,
     remove_channel,
     get_channels,
@@ -32,12 +29,7 @@ from monitor.collector import fetch_channel_history
 logger = logging.getLogger(__name__)
 
 # Conversation states
-WAIT_BRAND, WAIT_CATEGORY, WAIT_COLOR = range(3)
-
-# Callback data prefixes
-CAT_PREFIX = "cat:"
-COL_PREFIX = "col:"
-CANCEL_CB = "cancel"
+WAIT_BRAND = 0
 
 
 # ---------------------------------------------------------------------------
@@ -103,90 +95,23 @@ async def receive_brand(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         return ConversationHandler.END
 
     brand = update.message.text.strip()
-    context.user_data["brand"] = brand
+    products = await search_products_by_brand(brand, limit=10)
 
-    categories = await get_categories_for_brand(brand)
-    if not categories:
+    if not products:
         await update.message.reply_text(
-            f"No results found for *{brand}*. Try another brand.",
+            f"No results found for *{brand}* in the last 3 months.",
             parse_mode="Markdown",
         )
         return WAIT_BRAND
 
-    keyboard = [
-        [InlineKeyboardButton(cat, callback_data=f"{CAT_PREFIX}{cat}")]
-        for cat in categories
-    ]
-    keyboard.append([InlineKeyboardButton("Cancel", callback_data=CANCEL_CB)])
-    await update.message.reply_text(
-        f"Found categories for *{brand}*. Pick one:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
-    )
-    return WAIT_CATEGORY
-
-
-async def receive_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == CANCEL_CB:
-        await query.edit_message_text("Search cancelled.")
-        return ConversationHandler.END
-
-    category = query.data.removeprefix(CAT_PREFIX)
-    context.user_data["category"] = category
-    brand = context.user_data["brand"]
-
-    colors = await get_colors_for_brand_category(brand, category)
-    if not colors:
-        await query.edit_message_text(
-            f"No results found for this combination. Try another filter."
-        )
-        return ConversationHandler.END
-
-    keyboard = [
-        [InlineKeyboardButton(col, callback_data=f"{COL_PREFIX}{col}")]
-        for col in colors
-    ]
-    keyboard.append([InlineKeyboardButton("Cancel", callback_data=CANCEL_CB)])
-    await query.edit_message_text(
-        f"Pick a color for *{brand}* / *{category}*:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
-    )
-    return WAIT_COLOR
-
-
-async def receive_color(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == CANCEL_CB:
-        await query.edit_message_text("Search cancelled.")
-        return ConversationHandler.END
-
-    color = query.data.removeprefix(COL_PREFIX)
-    brand = context.user_data["brand"]
-    category = context.user_data["category"]
-
-    products = await search_products(brand, category, color)
-    if not products:
-        await query.edit_message_text(
-            "No results found for this combination. Try another filter."
-        )
-        return ConversationHandler.END
-
-    await query.edit_message_text(f"Found {len(products)} deal(s):")
-
-    for product in products[:10]:  # cap at 10 results per search
-        await query.message.reply_text(
+    await update.message.reply_text(f"Found {len(products)} deal(s) for *{brand}*:", parse_mode="Markdown")
+    for product in products:
+        await update.message.reply_text(
             _format_product(product),
             parse_mode="Markdown",
             disable_web_page_preview=True,
         )
-
-    return ConversationHandler.END
+    return WAIT_BRAND
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -360,8 +285,6 @@ def build_application(token: str) -> Application:
         ],
         states={
             WAIT_BRAND: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_brand)],
-            WAIT_CATEGORY: [CallbackQueryHandler(receive_category)],
-            WAIT_COLOR: [CallbackQueryHandler(receive_color)],
         },
         fallbacks=[CommandHandler("cancel", cmd_cancel)],
     )

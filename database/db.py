@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import select
 
@@ -31,6 +32,21 @@ async def init_db() -> None:
 
 def get_session() -> AsyncSession:
     return SessionFactory()
+
+
+async def search_products_by_brand(brand: str, limit: int = 10) -> list[Product]:
+    since = datetime.now(timezone.utc) - timedelta(days=90)
+    async with SessionFactory() as session:
+        result = await session.execute(
+            select(Product)
+            .where(
+                Product.brand.ilike(f"%{brand}%"),
+                Product.created_at >= since,
+            )
+            .order_by(Product.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
 
 
 async def search_products(brand: str, category: str, color: str) -> list[Product]:
